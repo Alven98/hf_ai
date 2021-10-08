@@ -1,5 +1,2 @@
-C = 0.707
-Zo = 20.71
-
-Ze = Zo * ((1 + C) / (1 - C))**0.5
-print(2000e-6)
+for x in range(5):
+    print(x)
