@@ -58,7 +58,7 @@ def build_dqn(lr, n_actions, input_dims, fc1_dims, fc2_dims):
 
 class Agent(object):
     def __init__(self, alpha, gamma, n_actions, epsilon, batch_size,
-                 input_dims, tune_parameter, mclin_id, eps_dec=0.996, eps_min=0.01,
+                 input_dims, tune_parameter, mclin_ids, eps_dec=0.996, eps_min=0.01,
                  mem_size=1000000, replace_target=100):
         self.n_actions = n_actions
         self.action_space = [i for i in range(self.n_actions)]
@@ -67,7 +67,7 @@ class Agent(object):
         self.epsilon_dec = eps_dec
         self.epsilon_min = eps_min
         self.batch_size = batch_size
-        self.model_file = os.path.join(os.getcwd(), r"ddqn/models/MCLIN" + str(mclin_id) + "_ddqn_" + tune_parameter + "_model.h5")
+        self.model_file = os.path.join(os.getcwd(), r"ddqn/models/" + str(mclin_ids) + "_ddqn_" + tune_parameter + "_model.h5")
         self.replace_target = replace_target
         self.memory = ReplayBuffer(mem_size, input_dims, n_actions, True)
         self.q_eval = build_dqn(alpha, n_actions, input_dims, 256, 256)
