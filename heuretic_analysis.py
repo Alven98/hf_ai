@@ -1,79 +1,69 @@
 import pandas as pd
 
 
-class HEURETIC(object):
-    def __init__(self, data, cf, el):
-        self.data_db = pd.DataFrame(data, columns=["Ze", "Zo", "EL"])
-        self.cf = cf
-        self.el = el
-        self.cf_min = self.cf - 0.1e-3
-        self.cf_max = self.cf + 0.1e-3
-        self.el_min = self.el - 0.01
-        self.el_max = self.el + 0.01
+class EVALUATION(object):
+    def __init__(self, s11, s21, fo, bw, return_loss, insertion_loss):
 
-    def width_analysis(self):
+        # Initialize s11, s21 database
+        self.s11_data_db = pd.DataFrame(s11, columns=["f", "dB"])
+        self.s21_data_db = pd.DataFrame(s21, columns=["f", "dB"])
+
+        # Policy
+        self.fo = fo
+        self.fc1 = fo - (bw / 2)
+        self.fc2 = fo + (bw / 2)
+        self.bw = bw
+        self.return_loss = return_loss
+        self.insertion_loss = insertion_loss
+
+    def scathering_analysis(self):
         """
         The get_state_reward for
-        1. Construct State according to W
+        1. Construct State according to tuning parameters
         2. Evaluation
 
         state (list): The state. Attributes:
-            s[0] is the EL of MCLIN
+            s[0] is the first cutoff frequency
+            s[1] is the second cutoff frequency
+            s[2] is the bandwidth of S-P
 
         returns:
              a: To return the next state, reward and done status.
         """
-        A1 = self.data_db.iloc[0]["EL"]
+        s21_passband = self.s21_data_db.loc[(self.s21_data_db['dB'] > -5)].values
+        fc1 = s21_passband[0][0]
+        fc2 = s21_passband[-1][0]
+        actual_bw = fc2 - fc1
+
+        passes = 0
+        s11_passband = self.s11_data_db.loc[(self.s11_data_db['f'] >= fc1) & (self.s11_data_db['f'] <= fc2)].values
+        for p in s11_passband:
+            if p[1] <= self.return_loss:
+                passes += 1
+        pass_rate = passes / len(s11_passband)
 
         state = [
-            A1
+            fc1,
+            fc2,
+            actual_bw,
+            pass_rate
         ]
 
-        A = -1000 * (0 if self.el_min < abs(state[0]) < self.el_max else abs(self.el - state[0]) / (abs(self.el + state[0]) / 2))
-        B = 100 * (1 if self.el_min < abs(state[0]) < self.el_max else 0)
+        A = -100 * 0.6 * (0 if self.fc1 - 0.05e9 < state[0] < self.fc1 + 0.05e9 else abs(self.fc1 - state[0]) / (abs(self.fc1 + state[0]) / 2))
+        B = -100 * 0.6 * (0 if self.fc2 - 0.05e9 < state[1] < self.fc2 + 0.05e9 else abs(self.fc2 - state[1]) / (abs(self.fc2 + state[0]) / 2))
+        C = -100 * 0.4 * (0 if self.bw - 0.05e9 < state[2] < self.bw + 0.05e9 else abs(self.bw - state[2]) / (abs(self.bw + state[0]) / 2))
+        D = -100 * 0.7 * (1 - state[3])
+        E = 50 * (1 if self.fc1 - 0.05e9 < state[0] < self.fc1 + 0.05e9 else 0)
+        F = 50 * (1 if self.fc2 - 0.05e9 < state[1] < self.fc2 + 0.05e9 else 0)
+        G = 100 * (1 if self.bw - 0.05e9 < state[2] < self.bw + 0.05e9 else 0)
+        H = 80 * (state[3])
 
         reward = (
-            -1000 * (0 if self.el_min < abs(state[0]) < self.el_max else abs(self.el - state[0]) / (abs(self.el + state[0]) / 2))
-            + 100 * (1 if self.el_min < abs(state[0]) < self.el_max else 0)
+            A + B + C + D + E + F + G + H
         )
 
         done = (
-            True if reward > 80
-            else False
-        )
-
-        return state, done, reward
-
-    def space_analysis(self):
-        """
-        The get_state_reward for
-        1. Construct State according to S
-        2. Evaluation
-
-        state (list): The state. Attributes:
-            s[0] is the ratio of Zo/Ze of MCLIN
-
-        returns:
-             a: To return the next state, reward and done status.
-        """
-        A1 = self.data_db.iloc[0]["Ze"]
-        A2 = self.data_db.iloc[0]["Zo"]
-
-        state = [
-            (A2 / A1)
-        ]
-
-        A = -100 * (0 if self.cf_min < abs(state[0]) < self.cf_max else abs(self.cf - state[0]) / (abs(self.cf + state[0]) / 2))
-        C = 100 * (1 if self.cf_min < abs(state[0]) < self.cf_max else 0)
-
-        reward = (
-            -100 * (0 if self.cf_min < abs(state[0]) < self.cf_max else abs(self.cf - state[0]) / (abs(self.cf + state[0]) / 2))
-            + 100 * (1 if self.cf_min < abs(state[0]) < self.cf_max else 0)
-        )
-
-        done = (
-            True if reward > 80
-            or self.cf_min < abs(state[0]) < self.cf_max
+            True if reward > 210
             else False
         )
 
